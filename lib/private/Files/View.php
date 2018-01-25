@@ -349,7 +349,8 @@ class View {
 	 * @return bool|mixed
 	 */
 	public function rmdir($path) {
-		return $this->emittingCall(function () use (&$path) {
+		$emitPostEvent = false;
+		return $this->emittingCall(function () use (&$path, &$emitPostEvent) {
 			$absolutePath = $this->getAbsolutePath($path);
 			$mount = Filesystem::getMountManager()->find($absolutePath);
 			if ($mount->getInternalPath($absolutePath) === '') {
@@ -369,7 +370,10 @@ class View {
 			}
 
 			return $result;
-		}, ['before' => ['path' => $this->getAbsolutePath($path)], 'after' => ['path' => $this->getAbsolutePath($path)]], 'file', 'delete');
+		}, [
+			'before' => ['path' => $this->getAbsolutePath($path)],
+			'after' => ['path' => $this->getAbsolutePath($path), 'processPostEvent' => $emitPostEvent]
+		], 'file', 'delete');
 	}
 
 	/**
@@ -720,7 +724,8 @@ class View {
 	 * @return bool|mixed
 	 */
 	public function unlink($path) {
-		return $this->emittingCall(function () use (&$path) {
+		$emitPostEvent = false;
+		return $this->emittingCall(function () use (&$path, &$emitPostEvent) {
 			if ($path === '' || $path === '/') {
 				// do not allow deleting the root
 				return false;
@@ -745,7 +750,10 @@ class View {
 			} else {
 				return $result;
 			}
-		}, ['before' => ['path' => $this->getAbsolutePath($path)], 'after' => ['path' => $this->getAbsolutePath($path)]], 'file', 'delete');
+		}, [
+			'before' => ['path' => $this->getAbsolutePath($path)],
+			'after' => ['path' => $this->getAbsolutePath($path), 'processPostEvent' => $emitPostEvent]
+		], 'file', 'delete');
 	}
 
 	/**
@@ -765,7 +773,8 @@ class View {
 	 * @return bool|mixed
 	 */
 	public function rename($path1, $path2) {
-		return $this->emittingCall(function () use (&$path1, &$path2) {
+		$emitPostEvents = false;
+		return $this->emittingCall(function () use (&$path1, &$path2, &$emitPostEvents) {
 			$absolutePath1 = Filesystem::normalizePath($this->getAbsolutePath($path1));
 			$absolutePath2 = Filesystem::normalizePath($this->getAbsolutePath($path2));
 			$result = false;
@@ -860,6 +869,7 @@ class View {
 						}
 					} elseif ($result) {
 						if ($this->shouldEmitHooks($path1) and $this->shouldEmitHooks($path2)) {
+							$emitPostEvents = true;
 							\OC_Hook::emit(
 								Filesystem::CLASSNAME,
 								Filesystem::signal_post_rename,
@@ -880,7 +890,8 @@ class View {
 			'before' => ['oldpath' => $this->getAbsolutePath($path1),
 				'newpath' => $this->getAbsolutePath($path2)],
 			'after' => ['oldpath' => $this->getAbsolutePath($path1),
-				'newpath' => $this->getAbsolutePath($path2)]
+				'newpath' => $this->getAbsolutePath($path2),
+				'processPostEvent' => $emitPostEvents]
 		], 'file', 'rename');
 	}
 
